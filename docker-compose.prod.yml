@@ -1,0 +1,81 @@
+# docker-compose.prod.yml - Production version
+version: '3.8'
+
+services:
+  baseball-dashboard:
+    build: .
+    container_name: parlayjaye-dashboard-prod
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONPATH=/app
+      - THE_ODDS_API_KEY=${THE_ODDS_API_KEY}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://parlayjaye:${DB_PASSWORD}@postgres:5432/baseball_analytics
+      - ENVIRONMENT=production
+    volumes:
+      - dashboard_data:/app/data
+      - dashboard_logs:/app/logs
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - parlayjaye-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: parlayjaye-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - baseball-dashboard
+    restart: unless-stopped
+    networks:
+      - parlayjaye-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: parlayjaye-redis-prod
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - parlayjaye-network
+
+  postgres:
+    image: postgres:15
+    container_name: parlayjaye-db-prod
+    environment:
+      - POSTGRES_DB=baseball_analytics
+      - POSTGRES_USER=parlayjaye
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    restart: unless-stopped
+    networks:
+      - parlayjaye-network
+
+volumes:
+  dashboard_data:
+  dashboard_logs:
+  redis_data:
+  postgres_data:
+
+networks:
+  parlayjaye-network:
+    driver: bridge

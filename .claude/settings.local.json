@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(streamlit run:*)",
+      "Bash(docker-compose:*)",
+      "Bash(./run_dashboard.sh)",
+      "Bash(docker stop:*)",
+      "Bash(docker run:*)",
+      "Bash(python:*)",
+      "Bash(touch:*)",
+      "Bash(chmod:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(docker logs:*)",
+      "Bash(curl:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker exec:*)"
+    ],
+    "deny": []
+  }
+}

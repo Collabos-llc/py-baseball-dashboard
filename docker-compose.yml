@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  baseball-dashboard:
+    build: .
+    container_name: parlayjaye-dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONPATH=/app
+      - THE_ODDS_API_KEY=${THE_ODDS_API_KEY}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://parlayjaye:${DB_PASSWORD}@postgres:5432/baseball_analytics
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - parlayjaye-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: parlayjaye-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - parlayjaye-network
+
+  postgres:
+    image: postgres:15
+    container_name: parlayjaye-db
+    environment:
+      - POSTGRES_DB=baseball_analytics
+      - POSTGRES_USER=parlayjaye
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    networks:
+      - parlayjaye-network
+
+volumes:
+  redis_data:
+  postgres_data:
+
+networks:
+  parlayjaye-network:
+    driver: bridge
