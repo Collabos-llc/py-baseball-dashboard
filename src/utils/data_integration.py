@@ -3,12 +3,14 @@ import statsapi
 import pandas as pd
 from datetime import datetime, timedelta
 import streamlit as st
+from .data_validator import PyBaseballDataValidator
 
 class IntegratedBaseballData:
     """Combine PyBaseball historical data with MLB-StatsAPI live data"""
     
     def __init__(self):
         self.cache = {}
+        self.validator = PyBaseballDataValidator()
     
     @st.cache_data(ttl=3600)  # Cache for 1 hour
     def get_player_complete_profile(_self, player_name, player_id=None):
@@ -35,7 +37,12 @@ class IntegratedBaseballData:
                         end_dt=end_date.strftime('%Y-%m-%d'),
                         player_id=player_id
                     )
-                    profile['statcast_data'] = statcast_data
+                    # Validate and clean the statcast data
+                    if statcast_data is not None and not statcast_data.empty:
+                        validated_data = _self.validator.validate_batting_averages(statcast_data, player_id)
+                        profile['statcast_data'] = validated_data
+                    else:
+                        profile['statcast_data'] = statcast_data
                 except Exception as e:
                     print(f"Error getting Statcast data for {player_name}: {e}")
             
@@ -137,17 +144,22 @@ class IntegratedBaseballData:
                             'confidence': 'high'
                         })
             
-            # Team performance insights
+            # Team performance insights with validated data
             if home_stats is not None and away_stats is not None and not home_stats.empty and not away_stats.empty:
                 try:
+                    # Validate team batting averages
                     home_avg = home_stats['AVG'].iloc[-1] if 'AVG' in home_stats.columns else 0
                     away_avg = away_stats['AVG'].iloc[-1] if 'AVG' in away_stats.columns else 0
                     
-                    if abs(home_avg - away_avg) > 0.050:  # Significant difference
-                        better_team = "home" if home_avg > away_avg else "away"
+                    # Apply validation to team averages
+                    validated_home_avg = home_avg if home_avg and 0 <= home_avg <= 1 else 0.244
+                    validated_away_avg = away_avg if away_avg and 0 <= away_avg <= 1 else 0.244
+                    
+                    if abs(validated_home_avg - validated_away_avg) > 0.050:  # Significant difference
+                        better_team = "home" if validated_home_avg > validated_away_avg else "away"
                         insights.append({
                             'type': 'team_performance',
-                            'message': f"{better_team.title()} team has significant batting average advantage ({home_avg:.3f} vs {away_avg:.3f})",
+                            'message': f"{better_team.title()} team has significant batting average advantage ({validated_home_avg:.3f} vs {validated_away_avg:.3f})",
                             'confidence': 'high'
                         })
                 except Exception as e:
